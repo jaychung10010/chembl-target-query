@@ -1,8 +1,10 @@
 # get-chembl-bioactivity-data
 
-Small, reusable Python utility for pulling target-specific bioactivity and compound
-data from [ChEMBL](https://www.ebi.ac.uk/chembl/) given a UniProt ID — adapted from
-[TeachOpenCADD T001: Compound data acquisition (ChEMBL)](https://projects.volkamerlab.org/teachopencadd/talktorials/T001_query_chembl.html).
+Small, reusable Python utilities for pulling target-specific bioactivity and compound
+data from [ChEMBL](https://www.ebi.ac.uk/chembl/) given a UniProt ID, and evaluating
+those compounds against Lipinski's rule of five — adapted from
+[TeachOpenCADD T001: Compound data acquisition (ChEMBL)](https://projects.volkamerlab.org/teachopencadd/talktorials/T001_query_chembl.html)
+and [T002: Molecular filtering (Ro5)](https://projects.volkamerlab.org/teachopencadd/talktorials/T002_compound_adme.html).
 
 Given a UniProt accession (e.g. `P00533` for EGFR), it:
 
@@ -11,17 +13,20 @@ Given a UniProt accession (e.g. `P00533` for EGFR), it:
 3. Filters to nM units and deduplicates by compound
 4. Fetches canonical SMILES for the resulting compounds
 5. Merges bioactivity + compound data and computes pIC50
+6. Optionally adds Lipinski's rule of five (Ro5) property columns
 
 ... and returns a tidy `pandas.DataFrame` with columns:
 
 | molecule_chembl_id | IC50 | units | smiles | pIC50 |
 |---|---|---|---|---|
 
+Adding Ro5 properties appends: `molecular_weight`, `n_hba`, `n_hbd`, `logp`, `ro5_fulfilled`.
+
 ## Installation
 
 ```bash
-git clone https://github.com/jaychung10010/chembl-target-query.git
-cd chembl-target-query
+git clone https://github.com/<your-username>/get-chembl-bioactivity-data.git
+cd get-chembl-bioactivity-data
 pip install -r requirements.txt
 ```
 
@@ -46,6 +51,16 @@ df = get_chembl_bioactivity_data("P00533", target_index=0)
 df.head()
 ```
 
+**Adding Lipinski's rule of five (Ro5) properties:**
+
+```python
+from get_chembl_bioactivity_data import add_ro5_properties
+
+df = add_ro5_properties(df)
+# adds: molecular_weight, n_hba, n_hbd, logp, ro5_fulfilled
+df[df["ro5_fulfilled"]].head()  # keep only Ro5-compliant compounds
+```
+
 **Skipping `target_index`** falls back to auto-selecting the first
 `SINGLE PROTEIN` + `Homo sapiens` match (printing a warning if none exists) —
 useful for unattended/batch runs over many targets:
@@ -58,19 +73,25 @@ results = {uid: get_chembl_bioactivity_data(uid) for uid in targets}
 ## API
 
 ### `fetch_chembl_targets(uniprot_id: str) -> pd.DataFrame`
-
 Queries and prints all ChEMBL targets matching a UniProt accession. Returns the
 DataFrame so you can inspect `target_type`, `organism`, and `pref_name` before
 choosing which row to extract.
 
 ### `get_chembl_bioactivity_data(uniprot_id, target_index=None, show_progress=True) -> pd.DataFrame`
-
 Runs the full extraction pipeline for the selected target and returns the merged,
 filtered bioactivity + compound DataFrame with pIC50 values.
 
 ### `convert_ic50_to_pic50(ic50_value: float) -> float`
-
 Converts an IC50 value in nM to pIC50 (`9 - log10(IC50)`).
+
+### `calculate_ro5_properties(smiles: str) -> pd.Series`
+Computes molecular weight, H-bond acceptor/donor counts, logP, and Lipinski's
+rule of five compliance (`ro5_fulfilled`, True if no more than one of the four
+Ro5 conditions is violated) for a single SMILES string.
+
+### `add_ro5_properties(dataframe: pd.DataFrame, smiles_col: str = "smiles") -> pd.DataFrame`
+Applies `calculate_ro5_properties` to every row of a DataFrame (e.g. the output
+of `get_chembl_bioactivity_data`) and returns a copy with the Ro5 columns appended.
 
 ## Notes
 

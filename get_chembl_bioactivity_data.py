@@ -1,12 +1,15 @@
 """
 get_chembl_bioactivity_data.py
 
-Reusable function based on TeachOpenCADD T001 (Compound data acquisition - ChEMBL):
+Reusable functions based on TeachOpenCADD T001 (Compound data acquisition - ChEMBL)
+and T002 (Lipinski's rule of five - Ro5):
 https://projects.volkamerlab.org/teachopencadd/talktorials/T001_query_chembl.html
+https://projects.volkamerlab.org/teachopencadd/talktorials/T002_compound_adme.html
 
 Given a UniProt ID, fetches the corresponding ChEMBL target, pulls IC50 bioactivity
 data (human, exact measurements, binding assays), links it to compound SMILES, and
-returns a tidy pd.DataFrame with pIC50 values.
+returns a tidy pd.DataFrame with pIC50 values. A separate function then adds
+Lipinski's rule of five (Ro5) property columns to that DataFrame.
 """
 
 from __future__ import annotations
@@ -15,12 +18,71 @@ import math
 
 import pandas as pd
 from chembl_webresource_client.new_client import new_client
+from rdkit import Chem
+from rdkit.Chem import Descriptors
 from tqdm.auto import tqdm
 
 
 def convert_ic50_to_pic50(ic50_value: float) -> float:
     """Convert an IC50 value in nM to a pIC50 value."""
     return 9 - math.log10(ic50_value)
+
+
+def calculate_ro5_properties(smiles: str) -> pd.Series:
+    """
+    Test if input molecule (SMILES) fulfills Lipinski's rule of five.
+
+    Parameters
+    ----------
+    smiles : str
+        SMILES for a molecule.
+
+    Returns
+    -------
+    pandas.Series
+        Molecular weight, number of hydrogen bond acceptors/donor and logP value
+        and Lipinski's rule of five compliance for input molecule.
+    """
+    # RDKit molecule from SMILES
+    molecule = Chem.MolFromSmiles(smiles)
+    # Calculate Ro5-relevant chemical properties
+    molecular_weight = Descriptors.ExactMolWt(molecule)
+    n_hba = Descriptors.NumHAcceptors(molecule)
+    n_hbd = Descriptors.NumHDonors(molecule)
+    logp = Descriptors.MolLogP(molecule)
+    # Check if Ro5 conditions fulfilled
+    conditions = [molecular_weight <= 500, n_hba <= 10, n_hbd <= 5, logp <= 5]
+    ro5_fulfilled = sum(conditions) >= 3
+    # Return True if no more than one out of four conditions is violated
+    return pd.Series(
+        [molecular_weight, n_hba, n_hbd, logp, ro5_fulfilled],
+        index=["molecular_weight", "n_hba", "n_hbd", "logp", "ro5_fulfilled"],
+    )
+
+
+def add_ro5_properties(dataframe: pd.DataFrame, smiles_col: str = "smiles") -> pd.DataFrame:
+    """
+    Add Lipinski's rule of five (Ro5) property columns to a bioactivity/compound
+    DataFrame, such as the one returned by get_chembl_bioactivity_data().
+
+    Adds the following columns (via calculate_ro5_properties): molecular_weight,
+    n_hba, n_hbd, logp, ro5_fulfilled.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        DataFrame containing a column of SMILES strings, e.g. the output of
+        get_chembl_bioactivity_data().
+    smiles_col : str, default "smiles"
+        Name of the column containing SMILES strings.
+
+    Returns
+    -------
+    pd.DataFrame
+        A copy of the input DataFrame with the Ro5 property columns appended.
+    """
+    ro5_properties = dataframe[smiles_col].apply(calculate_ro5_properties)
+    return pd.concat([dataframe, ro5_properties], axis=1)
 
 
 def fetch_chembl_targets(uniprot_id: str) -> pd.DataFrame:
@@ -238,3 +300,7 @@ if __name__ == "__main__":
     # If you skip target_index, it auto-selects the first SINGLE PROTEIN /
     # Homo sapiens match (with a printed warning if none exists):
     # df = get_chembl_bioactivity_data("P00533")
+
+    # Step 3: add Lipinski's rule of five (Ro5) property columns
+    df = add_ro5_properties(df)
+    print(df.head())
