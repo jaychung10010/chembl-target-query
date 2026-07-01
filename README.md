@@ -20,7 +20,7 @@ Given a UniProt accession (e.g. `P00533` for EGFR), it:
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/get-chembl-bioactivity-data.git
+git clone https://github.com/jaychung10010/get-chembl-bioactivity-data.git
 cd get-chembl-bioactivity-data
 pip install -r requirements.txt
 ```
@@ -58,15 +58,18 @@ results = {uid: get_chembl_bioactivity_data(uid) for uid in targets}
 ## API
 
 ### `fetch_chembl_targets(uniprot_id: str) -> pd.DataFrame`
+
 Queries and prints all ChEMBL targets matching a UniProt accession. Returns the
 DataFrame so you can inspect `target_type`, `organism`, and `pref_name` before
 choosing which row to extract.
 
 ### `get_chembl_bioactivity_data(uniprot_id, target_index=None, show_progress=True) -> pd.DataFrame`
+
 Runs the full extraction pipeline for the selected target and returns the merged,
 filtered bioactivity + compound DataFrame with pIC50 values.
 
 ### `convert_ic50_to_pic50(ic50_value: float) -> float`
+
 Converts an IC50 value in nM to pIC50 (`9 - log10(IC50)`).
 
 ## Notes
