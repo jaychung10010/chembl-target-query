@@ -20,8 +20,8 @@ Given a UniProt accession (e.g. `P00533` for EGFR), it:
 ## Installation
 
 ```bash
-git clone https://github.com/jaychung10010/get-chembl-bioactivity-data.git
-cd get-chembl-bioactivity-data
+git clone https://github.com/jaychung10010/chembl-target-query.git
+cd chembl-target-query
 pip install -r requirements.txt
 ```
 
