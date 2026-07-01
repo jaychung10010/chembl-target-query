@@ -1,0 +1,3 @@
+pandas>=1.5
+tqdm>=4.65
+chembl_webresource_client>=0.10.9
