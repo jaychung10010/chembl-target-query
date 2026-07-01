@@ -1,4 +1,4 @@
-# get-chembl-bioactivity-data
+# chEMBL target query
 
 Small, reusable Python utilities for pulling target-specific bioactivity and compound
 data from [ChEMBL](https://www.ebi.ac.uk/chembl/) given a UniProt ID, and evaluating
